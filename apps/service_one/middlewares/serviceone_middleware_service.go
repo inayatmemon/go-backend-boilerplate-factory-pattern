@@ -1,4 +1,4 @@
-package application_middleware
+package serviceone_middleware
 
 import (
 	"github.com/gin-gonic/gin"

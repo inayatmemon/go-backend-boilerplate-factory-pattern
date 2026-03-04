@@ -8,7 +8,7 @@ import (
 	brands_http_service "go_boilerplate_project/apps/service_one/layers/http/brands"
 	products_http_service "go_boilerplate_project/apps/service_one/layers/http/products"
 	serviceone_router "go_boilerplate_project/apps/service_one/router"
-	application_middleware "go_boilerplate_project/middlewares/application"
+	application_middleware "go_boilerplate_project/apps/service_one/middlewares"
 	global_middleware "go_boilerplate_project/middlewares/global"
 	env_models "go_boilerplate_project/models/env"
 	context_repository "go_boilerplate_project/services/context"

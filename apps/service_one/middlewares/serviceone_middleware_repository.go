@@ -1,4 +1,4 @@
-package application_middleware
+package serviceone_middleware
 
 import (
 	"errors"
@@ -20,8 +20,8 @@ type service struct {
 }
 
 type Input struct {
-	Logger    *zap.SugaredLogger
-	AppName   string
+	Logger     *zap.SugaredLogger
+	AppName    string
 	AppVersion string
 }
 

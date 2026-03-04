@@ -2,15 +2,15 @@ package main
 
 import (
 	env_service_one "go_boilerplate_project/apps/service_one/env"
-	application_middleware "go_boilerplate_project/middlewares/application"
-	global_middleware "go_boilerplate_project/middlewares/global"
 	brands_data_service "go_boilerplate_project/apps/service_one/layers/data/brands"
 	products_data_service "go_boilerplate_project/apps/service_one/layers/data/products"
 	brands_domain_service "go_boilerplate_project/apps/service_one/layers/domain/brands"
 	products_domain_service "go_boilerplate_project/apps/service_one/layers/domain/products"
 	brands_http_service "go_boilerplate_project/apps/service_one/layers/http/brands"
 	products_http_service "go_boilerplate_project/apps/service_one/layers/http/products"
+	serviceone_middleware "go_boilerplate_project/apps/service_one/middlewares"
 	serviceone_router "go_boilerplate_project/apps/service_one/router"
+	global_middleware "go_boilerplate_project/middlewares/global"
 	dependencies_models "go_boilerplate_project/models/dependencies"
 	env_models "go_boilerplate_project/models/env"
 	context_repository "go_boilerplate_project/services/context"
@@ -199,10 +199,10 @@ func initMiddlewares(d *dependencies_models.ServiceOneDependencies) error {
 	global := global_middleware.InitService(global_middleware.Input{
 		Logger: d.Logger,
 	})
-	application := application_middleware.InitService(application_middleware.Input{
-		Logger:      d.Logger,
-		AppName:     d.Environment.App.AppName,
-		AppVersion:  d.Environment.App.AppVersion,
+	application := serviceone_middleware.InitService(serviceone_middleware.Input{
+		Logger:     d.Logger,
+		AppName:    d.Environment.App.AppName,
+		AppVersion: d.Environment.App.AppVersion,
 	})
 	d.Middleware = &dependencies_models.Middleware{
 		Global:      global,

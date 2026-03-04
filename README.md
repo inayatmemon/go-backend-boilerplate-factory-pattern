@@ -148,16 +148,16 @@ GoBoilerPlateFactoryPattern/
 │       │   └── http/                 # HTTP handlers (controllers)
 │       │       ├── brands/           # Brand API handlers
 │       │       └── products/         # Product API handlers
-│       └── router/                   # Route definitions (Gin routes, middleware)
+│       ├── middlewares/               # Application middlewares (service-specific)
+│       │   ├── serviceone_middleware_repository.go
+│       │   └── serviceone_middleware_service.go
+│       └── router/                    # Route definitions (Gin routes, middleware)
 │           ├── serviceone_router_repository.go
 │           └── serviceone_router_service.go
 ├── middlewares/
-│   ├── global/                        # Applied to all service routes
-│   │   ├── global_middleware_repository.go
-│   │   └── global_middleware_service.go
-│   └── application/                   # Service-specific (e.g. service_one)
-│       ├── application_middleware_repository.go
-│       └── application_middleware_service.go
+│   └── global/                        # Applied to all service routes
+│       ├── global_middleware_repository.go
+│       └── global_middleware_service.go
 ├── constants/
 │   ├── api/                           # API constants (pagination, base URLs)
 │   ├── env/                           # Env mode constants
@@ -364,13 +364,13 @@ Location: `middlewares/global/`
 
 ### Application Middleware
 
-Applied only to **service-specific route groups** (e.g. `/api/v1/*`) in `SetupRoutes()`.
+Applied only to **service-specific route groups** (e.g. `/api/v1/*`) in `SetupRoutes()`. Lives under each app so each service can have its own middlewares.
 
 | Middleware | Purpose |
 |------------|---------|
 | **AppVersion** | Adds `X-App-Name` and `X-App-Version` response headers from environment config. |
 
-Location: `middlewares/application/`
+Location: `apps/service_one/middlewares/`
 
 ### Execution Order
 
@@ -403,7 +403,7 @@ API responses include:
    }
    ```
 
-**Application** – In `middlewares/application/application_middleware_service.go`:
+**Application** – In `apps/service_one/middlewares/serviceone_middleware_service.go`:
 
 1. Implement a new method that returns `gin.HandlerFunc`.
 2. Append it in `GetMiddlewares()`:
@@ -482,7 +482,7 @@ The router applies these automatically via `GetMiddlewares()` in `ConfigureRoute
 
 ### Add a New Middleware
 
-See [Middlewares – Adding More Middlewares](#adding-more-middlewares) above. Use `middlewares/global/` for routes-wide behavior, or `middlewares/application/` for service-specific behavior.
+See [Middlewares – Adding More Middlewares](#adding-more-middlewares) above. Use `middlewares/global/` for routes-wide behavior, or `apps/service_one/middlewares/` for application-specific behavior.
 
 ---
 

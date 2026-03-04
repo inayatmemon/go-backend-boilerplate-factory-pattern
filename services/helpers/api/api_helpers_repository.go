@@ -3,6 +3,7 @@ package api_helpers_service
 import (
 	"errors"
 	api_models "go_boilerplate_project/models/api"
+	multilang_service "go_boilerplate_project/services/multilang"
 	"log"
 
 	"github.com/gin-gonic/gin"
@@ -29,7 +30,12 @@ type service struct {
 }
 
 type Input struct {
-	Logger *zap.SugaredLogger
+	Logger   *zap.SugaredLogger
+	Services *Services
+}
+
+type Services struct {
+	Multilang multilang_service.Repository
 }
 
 func InitService(input Input) Repository {
@@ -47,6 +53,12 @@ func (s *Input) validateInput() error {
 	}
 	if s.Logger == nil {
 		return errors.New("logger is nil for api helpers repository")
+	}
+	if s.Services == nil {
+		return errors.New("services is nil for api helpers repository")
+	}
+	if s.Services.Multilang == nil {
+		return errors.New("multilang is nil for api helpers repository")
 	}
 	return nil
 }

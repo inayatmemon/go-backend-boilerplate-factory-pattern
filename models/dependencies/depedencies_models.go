@@ -7,8 +7,8 @@ import (
 	products_domain_service "go_boilerplate_project/apps/service_one/layers/domain/products"
 	brands_http_service "go_boilerplate_project/apps/service_one/layers/http/brands"
 	products_http_service "go_boilerplate_project/apps/service_one/layers/http/products"
-	serviceone_router "go_boilerplate_project/apps/service_one/router"
 	application_middleware "go_boilerplate_project/apps/service_one/middlewares"
+	serviceone_router "go_boilerplate_project/apps/service_one/router"
 	global_middleware "go_boilerplate_project/middlewares/global"
 	env_models "go_boilerplate_project/models/env"
 	context_repository "go_boilerplate_project/services/context"
@@ -17,6 +17,7 @@ import (
 	mongodb_helpers_service "go_boilerplate_project/services/helpers/db/mongodb"
 	mysql_helpers_service "go_boilerplate_project/services/helpers/db/mysql"
 	redis_helpers_service "go_boilerplate_project/services/helpers/db/redis"
+	multilang_service "go_boilerplate_project/services/multilang"
 	network_service "go_boilerplate_project/services/network"
 	transactions_service "go_boilerplate_project/services/transactions"
 
@@ -55,6 +56,7 @@ type Helpers struct {
 	API           api_helpers_service.Repository
 	DBHelpers     *DBHelpers
 	CustomHelpers custom_helpers_service.Repository
+	Multilang     multilang_service.Repository
 }
 
 type DBHelpers struct {
@@ -67,6 +69,7 @@ type Services struct {
 	Context      context_repository.Repository
 	Transactions transactions_service.Repository
 	Network      network_service.Repository
+	Multilang    multilang_service.Repository
 }
 
 type Http struct {

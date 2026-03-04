@@ -14,7 +14,7 @@ func (s *service) EditBrand(name string, id string) *api_models.ApiResponse {
 
 	response := &api_models.ApiResponse{
 		StatusCode: http.StatusOK,
-		Message:    "Brand edited successfully",
+		MessageKey: "brand_edit_success",
 		Data:       nil,
 	}
 
@@ -44,8 +44,9 @@ func (s *service) EditBrand(name string, id string) *api_models.ApiResponse {
 	if err != nil {
 		s.Input.Logger.Errorw("EditBrand failed", "error", err, "name", name, "id", id)
 		response.StatusCode = http.StatusInternalServerError
-		response.Message = "failed to edit brand"
-		response.Error = err.Error()
+		response.MessageKey = "brand_edit_failed"
+		response.ErrorKey = "error_detail"
+		response.ErrorKeyParams = map[string]string{"detail": err.Error()}
 		return response
 	}
 

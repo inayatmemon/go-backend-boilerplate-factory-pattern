@@ -24,16 +24,25 @@ import (
 
 func (s *service) ParseJSONBody(c *gin.Context, dest any) []api_models.ValidationError {
 	if err := c.ShouldBindJSON(dest); err != nil {
-		return s.buildValidationErrors(err, dest, "json")
+		lang := s.getLanguage(c)
+		return s.buildValidationErrors(err, dest, "json", lang)
 	}
 	return nil
 }
 
 func (s *service) ParseQueryParams(c *gin.Context, dest any) []api_models.ValidationError {
 	if err := c.ShouldBindQuery(dest); err != nil {
-		return s.buildValidationErrors(err, dest, "form")
+		lang := s.getLanguage(c)
+		return s.buildValidationErrors(err, dest, "form", lang)
 	}
 	return nil
+}
+
+func (s *service) getLanguage(c *gin.Context) string {
+	if s.Input.Services.Multilang != nil {
+		return s.Input.Services.Multilang.GetLanguage(c)
+	}
+	return "en"
 }
 
 func (s *service) ParsePathParam(c *gin.Context, key string) string {
@@ -55,18 +64,22 @@ func (s *service) SendApiResponse(c *gin.Context, response *api_models.ApiRespon
 		return
 	}
 
+	lang := s.getLanguage(c)
+	message := s.resolveMessage(lang, response)
+	errorDetail := s.resolveError(lang, response)
+
 	if response.ValidationErrors != nil {
 		s.SendValidationError(c, response.ValidationErrors)
 		return
 	}
 
-	if response.Error != "" {
-		s.SendError(c, response.StatusCode, response.Message, response.Error)
+	if errorDetail != "" {
+		s.SendError(c, response.StatusCode, message, errorDetail)
 		return
 	}
 
 	if response.PageCount > 0 {
-		s.SendPaginatedSuccess(c, response.StatusCode, response.Message, response.Data, &api_models.PaginationResult{
+		s.SendPaginatedSuccess(c, response.StatusCode, message, response.Data, &api_models.PaginationResult{
 			Limit:      response.PageSize,
 			Offset:     (response.PageNumber - 1) * response.PageSize,
 			PageNumber: response.PageNumber,
@@ -77,7 +90,21 @@ func (s *service) SendApiResponse(c *gin.Context, response *api_models.ApiRespon
 		return
 	}
 
-	s.SendSuccess(c, response.StatusCode, response.Message, response.Data)
+	s.SendSuccess(c, response.StatusCode, message, response.Data)
+}
+
+func (s *service) resolveMessage(lang string, r *api_models.ApiResponse) string {
+	if r.MessageKey != "" && s.Input.Services.Multilang != nil {
+		return s.Input.Services.Multilang.GetMessage(lang, r.MessageKey, nil)
+	}
+	return r.Message
+}
+
+func (s *service) resolveError(lang string, r *api_models.ApiResponse) string {
+	if r.ErrorKey != "" && s.Input.Services.Multilang != nil {
+		return s.Input.Services.Multilang.GetMessage(lang, r.ErrorKey, r.ErrorKeyParams)
+	}
+	return r.Error
 }
 
 func (s *service) SendSuccess(c *gin.Context, statusCode int, message string, data any) {
@@ -114,9 +141,11 @@ func (s *service) SendError(c *gin.Context, statusCode int, message string, errD
 }
 
 func (s *service) SendValidationError(c *gin.Context, validationErrors []api_models.ValidationError) {
+	lang := s.getLanguage(c)
+	msg := s.translate(lang, "validation_failed", nil)
 	resp := api_models.ApiResponse{
 		StatusCode:       http.StatusBadRequest,
-		Message:          "validation failed",
+		Message:          msg,
 		ValidationErrors: validationErrors,
 		Timestamp:        time.Now(),
 	}
@@ -162,6 +191,7 @@ func (s *service) SendPaginatedSuccess(c *gin.Context, statusCode int, message s
 
 func (s *service) GetPaginationFromQuery(c *gin.Context) (*api_models.PaginationInput, []api_models.ValidationError) {
 	var errs []api_models.ValidationError
+	lang := s.getLanguage(c)
 
 	pageNumber := api_constants.DefaultPageNumber
 	pageSize := api_constants.DefaultPageSize
@@ -171,14 +201,14 @@ func (s *service) GetPaginationFromQuery(c *gin.Context) (*api_models.Pagination
 		if err != nil {
 			errs = append(errs, api_models.ValidationError{
 				Field:   "page_number",
-				Message: "page_number must be a valid integer",
+				Message: s.translate(lang, "validation_page_number_int", nil),
 				Tag:     "numeric",
 				Value:   raw,
 			})
 		} else if n < 1 {
 			errs = append(errs, api_models.ValidationError{
 				Field:   "page_number",
-				Message: "page_number must be at least 1",
+				Message: s.translate(lang, "validation_page_number_min", nil),
 				Tag:     "min",
 				Value:   n,
 			})
@@ -192,21 +222,21 @@ func (s *service) GetPaginationFromQuery(c *gin.Context) (*api_models.Pagination
 		if err != nil {
 			errs = append(errs, api_models.ValidationError{
 				Field:   "page_size",
-				Message: "page_size must be a valid integer",
+				Message: s.translate(lang, "validation_page_size_int", nil),
 				Tag:     "numeric",
 				Value:   raw,
 			})
 		} else if n < 1 {
 			errs = append(errs, api_models.ValidationError{
 				Field:   "page_size",
-				Message: "page_size must be at least 1",
+				Message: s.translate(lang, "validation_page_size_min", nil),
 				Tag:     "min",
 				Value:   n,
 			})
 		} else if n > api_constants.MaxPageSize {
 			errs = append(errs, api_models.ValidationError{
 				Field:   "page_size",
-				Message: fmt.Sprintf("page_size must be at most %d", api_constants.MaxPageSize),
+				Message: s.translate(lang, "validation_page_size_max", map[string]string{"param": fmt.Sprintf("%d", api_constants.MaxPageSize)}),
 				Tag:     "max",
 				Value:   n,
 			})
@@ -260,7 +290,7 @@ func (s *service) CalculatePagination(input *api_models.PaginationInput, totalCo
 // Validation Error Builder
 // ──────────────────────────────────────────────
 
-func (s *service) buildValidationErrors(err error, dest any, tagKey string) []api_models.ValidationError {
+func (s *service) buildValidationErrors(err error, dest any, tagKey, lang string) []api_models.ValidationError {
 	var validationErrs validator.ValidationErrors
 	if errors.As(err, &validationErrs) {
 		result := make([]api_models.ValidationError, 0, len(validationErrs))
@@ -268,7 +298,7 @@ func (s *service) buildValidationErrors(err error, dest any, tagKey string) []ap
 			fieldName := resolveFieldName(dest, fe.StructField(), tagKey)
 			result = append(result, api_models.ValidationError{
 				Field:   fieldName,
-				Message: buildFieldMessage(fieldName, fe),
+				Message: s.buildFieldMessage(lang, fieldName, fe),
 				Tag:     fe.Tag(),
 				Value:   fe.Value(),
 			})
@@ -282,9 +312,10 @@ func (s *service) buildValidationErrors(err error, dest any, tagKey string) []ap
 		if field == "" {
 			field = "body"
 		}
+		msg := s.translate(lang, "validation_type_mismatch", map[string]string{"field": field, "param": unmarshalTypeErr.Type.String()})
 		return []api_models.ValidationError{{
 			Field:   field,
-			Message: fmt.Sprintf("%s must be of type %s", field, unmarshalTypeErr.Type),
+			Message: msg,
 			Tag:     "type_mismatch",
 			Value:   unmarshalTypeErr.Value,
 		}}
@@ -292,24 +323,27 @@ func (s *service) buildValidationErrors(err error, dest any, tagKey string) []ap
 
 	var syntaxErr *json.SyntaxError
 	if errors.As(err, &syntaxErr) {
+		msg := s.translate(lang, "validation_json_syntax", map[string]string{"param": fmt.Sprintf("%d", syntaxErr.Offset)})
 		return []api_models.ValidationError{{
 			Field:   "body",
-			Message: fmt.Sprintf("malformed JSON: syntax error at position %d", syntaxErr.Offset),
+			Message: msg,
 			Tag:     "json_syntax",
 		}}
 	}
 
 	if errors.Is(err, io.EOF) {
+		msg := s.translate(lang, "validation_body_empty", nil)
 		return []api_models.ValidationError{{
 			Field:   "body",
-			Message: "request body is empty",
+			Message: msg,
 			Tag:     "required",
 		}}
 	}
 
+	msg := s.translate(lang, "validation_parse_error", map[string]string{"field": err.Error()})
 	return []api_models.ValidationError{{
 		Field:   "body",
-		Message: err.Error(),
+		Message: msg,
 		Tag:     "parse_error",
 	}}
 }
@@ -317,6 +351,14 @@ func (s *service) buildValidationErrors(err error, dest any, tagKey string) []ap
 // ──────────────────────────────────────────────
 // Internal Helpers
 // ──────────────────────────────────────────────
+
+func (s *service) translate(lang, key string, params map[string]string) string {
+	if s.Input.Services.Multilang != nil {
+		return s.Input.Services.Multilang.GetMessage(lang, key, params)
+	}
+	// Fallback when multilang not configured
+	return key
+}
 
 func resolveFieldName(obj any, structField string, tagKey string) string {
 	t := reflect.TypeOf(obj)
@@ -333,106 +375,107 @@ func resolveFieldName(obj any, structField string, tagKey string) string {
 	return structField
 }
 
-func buildFieldMessage(field string, fe validator.FieldError) string {
+func (s *service) buildFieldMessage(lang, field string, fe validator.FieldError) string {
 	param := fe.Param()
+	tag := fe.Tag()
 	isStr := fe.Kind() == reflect.String
 
-	switch fe.Tag() {
+	key := ""
+	params := map[string]string{"field": field, "param": param}
+
+	switch tag {
 	case "required", "required_if", "required_unless", "required_with", "required_without",
 		"required_with_all", "required_without_all":
-		return field + " is required"
-
+		key = "validation_required"
 	case "min":
 		if isStr {
-			return fmt.Sprintf("%s must be at least %s characters long", field, param)
+			key = "validation_min_str"
+		} else {
+			key = "validation_min"
 		}
-		return fmt.Sprintf("%s must be at least %s", field, param)
 	case "max":
 		if isStr {
-			return fmt.Sprintf("%s must be at most %s characters long", field, param)
+			key = "validation_max_str"
+		} else {
+			key = "validation_max"
 		}
-		return fmt.Sprintf("%s must be at most %s", field, param)
 	case "len":
 		if isStr {
-			return fmt.Sprintf("%s must be exactly %s characters long", field, param)
+			key = "validation_len_str"
+		} else {
+			key = "validation_len"
 		}
-		return fmt.Sprintf("%s must have exactly %s items", field, param)
-
 	case "eq":
-		return fmt.Sprintf("%s must be equal to %s", field, param)
+		key = "validation_eq"
 	case "ne":
-		return fmt.Sprintf("%s must not be equal to %s", field, param)
+		key = "validation_ne"
 	case "gt":
-		return fmt.Sprintf("%s must be greater than %s", field, param)
+		key = "validation_gt"
 	case "gte":
-		return fmt.Sprintf("%s must be greater than or equal to %s", field, param)
+		key = "validation_gte"
 	case "lt":
-		return fmt.Sprintf("%s must be less than %s", field, param)
+		key = "validation_lt"
 	case "lte":
-		return fmt.Sprintf("%s must be less than or equal to %s", field, param)
+		key = "validation_lte"
 	case "oneof":
-		return fmt.Sprintf("%s must be one of [%s]", field, param)
-
+		key = "validation_oneof"
 	case "eqfield":
-		return fmt.Sprintf("%s must match %s", field, param)
+		key = "validation_eqfield"
 	case "nefield":
-		return fmt.Sprintf("%s must not match %s", field, param)
+		key = "validation_nefield"
 	case "gtfield":
-		return fmt.Sprintf("%s must be greater than %s", field, param)
+		key = "validation_gtfield"
 	case "ltfield":
-		return fmt.Sprintf("%s must be less than %s", field, param)
-
+		key = "validation_ltfield"
 	case "email":
-		return field + " must be a valid email address"
+		key = "validation_email"
 	case "url":
-		return field + " must be a valid URL"
+		key = "validation_url"
 	case "uri":
-		return field + " must be a valid URI"
+		key = "validation_uri"
 	case "uuid", "uuid3", "uuid4", "uuid5":
-		return field + " must be a valid UUID"
+		key = "validation_uuid"
 	case "ip":
-		return field + " must be a valid IP address"
+		key = "validation_ip"
 	case "ipv4":
-		return field + " must be a valid IPv4 address"
+		key = "validation_ipv4"
 	case "ipv6":
-		return field + " must be a valid IPv6 address"
+		key = "validation_ipv6"
 	case "json":
-		return field + " must be valid JSON"
+		key = "validation_json"
 	case "jwt":
-		return field + " must be a valid JWT token"
+		key = "validation_jwt"
 	case "e164":
-		return field + " must be a valid E.164 phone number"
-
+		key = "validation_e164"
 	case "alpha":
-		return field + " must contain only letters"
+		key = "validation_alpha"
 	case "alphanum":
-		return field + " must contain only letters and numbers"
+		key = "validation_alphanum"
 	case "alphanumunicode":
-		return field + " must contain only unicode letters and numbers"
+		key = "validation_alphanumunicode"
 	case "numeric":
-		return field + " must be numeric"
+		key = "validation_numeric"
 	case "boolean":
-		return field + " must be a boolean"
+		key = "validation_boolean"
 	case "lowercase":
-		return field + " must be lowercase"
+		key = "validation_lowercase"
 	case "uppercase":
-		return field + " must be uppercase"
-
+		key = "validation_uppercase"
 	case "contains":
-		return fmt.Sprintf("%s must contain '%s'", field, param)
+		key = "validation_contains"
 	case "excludes":
-		return fmt.Sprintf("%s must not contain '%s'", field, param)
+		key = "validation_excludes"
 	case "startswith":
-		return fmt.Sprintf("%s must start with '%s'", field, param)
+		key = "validation_startswith"
 	case "endswith":
-		return fmt.Sprintf("%s must end with '%s'", field, param)
-
+		key = "validation_endswith"
 	case "datetime":
-		return fmt.Sprintf("%s must be a valid datetime in format '%s'", field, param)
-
+		key = "validation_datetime"
 	default:
-		return fmt.Sprintf("%s failed on '%s' validation", field, fe.Tag())
+		key = "validation_default"
+		params["param"] = tag
 	}
+	return s.translate(lang, key, params)
 }
 
 func countItems(data any) int {

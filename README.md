@@ -161,6 +161,7 @@ GoBoilerPlateFactoryPattern/
 ├── constants/
 │   ├── api/                           # API constants (pagination, base URLs)
 │   ├── env/                           # Env mode constants
+│   ├── lang/                          # Language header, default lang
 │   ├── enums/                         # Enums (e.g. HTTP methods)
 │   ├── errors/                        # Error definitions
 │   ├── numeric/                       # Numeric constants
@@ -179,6 +180,7 @@ GoBoilerPlateFactoryPattern/
 │       └── redis/                     # Redis helper input/output
 ├── services/
 │   ├── context/                      # Context factory (timeout, cancel)
+│   ├── multilang/                    # Multi-language (go-i18n) for API errors
 │   ├── logger/                       # Zap logger setup
 │   ├── network/                      # HTTP fetch service (call external APIs)
 │   ├── transactions/                 # MongoDB & MySQL transaction runner
@@ -193,6 +195,7 @@ GoBoilerPlateFactoryPattern/
 │   ├── mongodb/                      # MongoDB connection & reconnect logic
 │   ├── mysql/                        # MySQL connection & reconnect logic
 │   └── redis/                        # Redis connection & reconnect logic
+├── languages/                        # i18n JSON files (en.json, es.json, fr.json)
 ├── logs/                             # Log output directory
 ├── .env                              # Environment variables (create from env_sample.text)
 ├── env_sample.text                   # Sample .env template
@@ -345,6 +348,29 @@ Use in HTTP handlers for parsing and responses:
 - `SendError(c, statusCode, message, errDetail)` – Send error response
 - `SendApiResponse(c, response)` – Unified response handler
 - `GetPaginationFromQuery(c)` – Parse `page_number` and `page_size`
+
+---
+
+### 6. Multi-Language Support (i18n)
+
+API validation errors are translated using [go-i18n](https://github.com/nicksnyder/go-i18n). Language files live in `languages/` at the project root.
+
+**Language header:** `X-Language` or `Accept-Language` (e.g. `en`, `es`, `fr`)
+
+```bash
+# English (default)
+curl -X POST http://localhost:8080/api/v1/brands \
+  -H "Content-Type: application/json" \
+  -d '{"name":"x"}'   # name too short
+
+# Spanish
+curl -X POST http://localhost:8080/api/v1/brands \
+  -H "Content-Type: application/json" \
+  -H "X-Language: es" \
+  -d '{"name":"x"}'
+```
+
+Response messages vary by language. Supported: **en** (default), **es**, **fr**. Add more by creating `languages/<code>.json` (e.g. `languages/de.json`) and registering it in `multilang_service.InitBundle`.
 
 ---
 

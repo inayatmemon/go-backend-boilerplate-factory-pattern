@@ -12,7 +12,7 @@ func (s *service) CreateProduct(request *products_models.CreateProductRequest) *
 
 	response := &api_models.ApiResponse{
 		StatusCode: http.StatusCreated,
-		Message:    "Product created successfully",
+		MessageKey: "product_create_success",
 		Data:       nil,
 	}
 
@@ -28,8 +28,9 @@ func (s *service) CreateProduct(request *products_models.CreateProductRequest) *
 	if err != nil {
 		s.Input.Logger.Errorw("CreateProduct failed to get brand", "error", err, "brandId", request.BrandId)
 		response.StatusCode = http.StatusInternalServerError
-		response.Message = "failed to create product"
-		response.Error = err.Error()
+		response.MessageKey = "product_create_failed"
+		response.ErrorKey = "error_detail"
+		response.ErrorKeyParams = map[string]string{"detail": err.Error()}
 		return response
 	}
 
@@ -38,8 +39,9 @@ func (s *service) CreateProduct(request *products_models.CreateProductRequest) *
 	if err := s.Input.Data.Products.CreateProductMySQL(product); err != nil {
 		s.Input.Logger.Errorw("CreateProduct failed at MySQL create", "error", err, "name", request.Name)
 		response.StatusCode = http.StatusInternalServerError
-		response.Message = "failed to create product"
-		response.Error = err.Error()
+		response.MessageKey = "product_create_failed"
+		response.ErrorKey = "error_detail"
+		response.ErrorKeyParams = map[string]string{"detail": err.Error()}
 		return response
 	}
 
@@ -47,8 +49,9 @@ func (s *service) CreateProduct(request *products_models.CreateProductRequest) *
 	if err := s.Input.Data.Products.CreateProductMongoDB(product); err != nil {
 		s.Input.Logger.Errorw("CreateProduct failed at MongoDB create", "error", err, "name", request.Name)
 		response.StatusCode = http.StatusInternalServerError
-		response.Message = "failed to create product"
-		response.Error = err.Error()
+		response.MessageKey = "product_create_failed"
+		response.ErrorKey = "error_detail"
+		response.ErrorKeyParams = map[string]string{"detail": err.Error()}
 		return response
 	}
 

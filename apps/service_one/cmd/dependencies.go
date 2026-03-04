@@ -10,6 +10,7 @@ import (
 	products_http_service "go_boilerplate_project/apps/service_one/layers/http/products"
 	serviceone_middleware "go_boilerplate_project/apps/service_one/middlewares"
 	serviceone_router "go_boilerplate_project/apps/service_one/router"
+	lang_constants "go_boilerplate_project/constants/lang"
 	global_middleware "go_boilerplate_project/middlewares/global"
 	dependencies_models "go_boilerplate_project/models/dependencies"
 	env_models "go_boilerplate_project/models/env"
@@ -20,6 +21,7 @@ import (
 	mysql_helpers_service "go_boilerplate_project/services/helpers/db/mysql"
 	redis_helpers_service "go_boilerplate_project/services/helpers/db/redis"
 	logger_service "go_boilerplate_project/services/logger"
+	multilang_service "go_boilerplate_project/services/multilang"
 	network_service "go_boilerplate_project/services/network"
 	transactions_service "go_boilerplate_project/services/transactions"
 	"go_boilerplate_project/storage/mongodb"
@@ -76,11 +78,13 @@ func initDependencies(env *env_models.Environment, logger *zap.SugaredLogger) {
 			API:           nil,
 			DBHelpers:     nil,
 			CustomHelpers: nil,
+			Multilang:     nil,
 		},
 		Services: &dependencies_models.Services{
 			Context:      nil,
 			Transactions: nil,
 			Network:      nil,
+			Multilang:    nil,
 		},
 		Http: &dependencies_models.Http{
 			Brands:   nil,
@@ -103,6 +107,11 @@ func initDependencies(env *env_models.Environment, logger *zap.SugaredLogger) {
 	err = initContextService(dependencies)
 	if err != nil {
 		log.Fatalf("Failed to initialize context service for service one: %v", err)
+	}
+
+	err = initMultilang(dependencies)
+	if err != nil {
+		log.Fatalf("Failed to initialize multilang service for service one: %v", err)
 	}
 
 	err = initHelpers(dependencies)
@@ -142,9 +151,26 @@ func initDependencies(env *env_models.Environment, logger *zap.SugaredLogger) {
 
 }
 
+func initMultilang(d *dependencies_models.ServiceOneDependencies) error {
+	bundle, err := multilang_service.InitBundle("languages", lang_constants.DefaultLang)
+	if err != nil {
+		return err
+	}
+	multilang := multilang_service.InitService(multilang_service.Input{
+		Logger:      d.Logger,
+		DefaultLang: lang_constants.DefaultLang,
+		Bundle:      bundle,
+	})
+	d.Services.Multilang = multilang
+	return nil
+}
+
 func initHelpers(d *dependencies_models.ServiceOneDependencies) error {
 	apiHelpers := api_helpers_service.InitService(api_helpers_service.Input{
 		Logger: d.Logger,
+		Services: &api_helpers_service.Services{
+			Multilang: d.Services.Multilang,
+		},
 	})
 	d.Helpers.API = apiHelpers
 

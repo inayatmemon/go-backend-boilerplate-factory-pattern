@@ -5,9 +5,12 @@ import "time"
 type ApiResponse struct {
 	StatusCode       int               `json:"status_code"`
 	Message          string            `json:"message"`
+	MessageKey       string            `json:"-"` // Translation key; when set, Message is translated from this
+	Error            string            `json:"error,omitempty"`
+	ErrorKey         string            `json:"-"` // Translation key for Error; when set, Error is translated
+	ErrorKeyParams   map[string]string  `json:"-"` // Params for ErrorKey template (e.g. {"Detail": "..."})
 	Data             any               `json:"data,omitempty"`
 	Timestamp        time.Time         `json:"timestamp"`
-	Error            string            `json:"error,omitempty"`
 	ValidationErrors []ValidationError `json:"validation_errors,omitempty"`
 	PageCount        int               `json:"page_count,omitempty"`
 	PageNumber       int               `json:"page_number,omitempty"`

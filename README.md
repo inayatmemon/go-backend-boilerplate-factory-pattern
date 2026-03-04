@@ -1,6 +1,6 @@
 # Go Boilerplate Project
 
-A production-ready Go web API boilerplate using the **Factory Pattern** with clean layered architecture. It includes MongoDB, MySQL, Redis support, HTTP API helpers, transaction management, network service for external API calls, structured logging, and **global + application middlewares**.
+A production-ready Go web API boilerplate using the **Factory Pattern** with clean layered architecture. It includes MongoDB, MySQL, Redis support, HTTP API helpers, transaction management, network service for external API calls, multilang (i18n) service for localized API responses, structured logging, and **global + application middlewares**.
 
 ---
 
@@ -223,7 +223,7 @@ HTTP Request → Router → HTTP Layer → Domain Layer → Data Layer → DB/St
 | **Domain** | Business rules, orchestrates data layer, transactions | `domain/brands`, `domain/products` |
 | **Data** | Database operations via helpers | `data/brands`, `data/products` |
 | **Storage** | DB connection management (connect, reconnect) | `storage/mysql`, `storage/mongodb`, `storage/redis` |
-| **Services** | Cross-cutting: context, transactions, network, logger | `services/*` |
+| **Services** | Cross-cutting: context, transactions, network, multilang, logger | `services/*` |
 | **Helpers** | Reusable CRUD and API utilities | `services/helpers/*` |
 
 ### Factory Pattern
@@ -231,13 +231,20 @@ HTTP Request → Router → HTTP Layer → Domain Layer → Data Layer → DB/St
 Components are initialized via `InitService` with an `Input` struct. Dependencies are injected and validated. Example:
 
 ```go
-// dependencies.go
+// dependencies.go - Services (e.g. transactions, multilang)
 transactions := transactions_service.InitService(transactions_service.Input{
     Helpers:  &transactions_service.Helpers{ MongoDB: ..., MySQL: ... },
     Services: &transactions_service.Services{ Context: ... },
     Logger:   d.Logger,
 })
 d.Services.Transactions = transactions
+
+multilang := multilang_service.InitService(multilang_service.Input{
+    Logger:      d.Logger,
+    DefaultLang: "en",
+    Bundle:      bundle,
+})
+d.Services.Multilang = multilang
 ```
 
 ### Naming Conventions
@@ -341,7 +348,7 @@ err := d.Services.Transactions.RunMongoDBTransaction(&mongodb_models.Transaction
 
 ### 5. API Helpers
 
-Use in HTTP handlers for parsing and responses:
+Use in HTTP handlers for parsing and responses. API helpers receive the multilang service as a dependency for translating validation errors and messages.
 
 - `ParseJSONBody(c, dest)` – Bind JSON to struct, returns validation errors
 - `SendSuccess(c, statusCode, message, data)` – Send success response
@@ -353,7 +360,7 @@ Use in HTTP handlers for parsing and responses:
 
 ### 6. Multi-Language Support (i18n)
 
-API validation errors are translated using [go-i18n](https://github.com/nicksnyder/go-i18n). Language files live in `languages/` at the project root.
+API validation errors are translated using the **multilang service** ([go-i18n](https://github.com/nicksnyder/go-i18n)). The service is initialized in `dependencies.go` and injected into API helpers for localized responses. Language files live in `languages/` at the project root.
 
 **Language header:** `X-Language` or `Accept-Language` (e.g. `en`, `es`, `fr`)
 
@@ -370,7 +377,7 @@ curl -X POST http://localhost:8080/api/v1/brands \
   -d '{"name":"x"}'
 ```
 
-Response messages vary by language. Supported: **en** (default), **es**, **fr**. Add more by creating `languages/<code>.json` (e.g. `languages/de.json`) and registering it in `multilang_service.InitBundle`.
+Response messages vary by language. Supported: **en** (default), **es**, **fr**. Add more by creating `languages/<code>.json` (e.g. `languages/de.json`) and registering it in `multilang_service.InitBundle` (called from `dependencies.go` before initializing the multilang service).
 
 ---
 

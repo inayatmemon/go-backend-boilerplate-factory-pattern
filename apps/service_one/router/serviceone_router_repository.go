@@ -13,6 +13,11 @@ import (
 	"go.uber.org/zap"
 )
 
+type Middleware struct {
+	Global      interface{ GetMiddlewares() []gin.HandlerFunc }
+	Application interface{ GetMiddlewares() []gin.HandlerFunc }
+}
+
 type Repository interface {
 	ConfigureRouter()
 	SetupRoutes()
@@ -25,11 +30,12 @@ type service struct {
 }
 
 type Input struct {
-	Logger   *zap.SugaredLogger
-	Services *Services
-	Helpers  *Helpers
-	Env      *env_models.Environment
-	Http     *Http
+	Logger     *zap.SugaredLogger
+	Services   *Services
+	Helpers    *Helpers
+	Env        *env_models.Environment
+	Http       *Http
+	Middleware *Middleware
 }
 
 type Services struct {
@@ -93,6 +99,15 @@ func (s *Input) validateInput() error {
 	}
 	if s.Http.Products == nil {
 		return errors.New("products http is nil for serviceone router repository")
+	}
+	if s.Middleware == nil {
+		return errors.New("middleware is nil for serviceone router repository")
+	}
+	if s.Middleware.Global == nil {
+		return errors.New("global middleware is nil for serviceone router repository")
+	}
+	if s.Middleware.Application == nil {
+		return errors.New("application middleware is nil for serviceone router repository")
 	}
 	return nil
 }

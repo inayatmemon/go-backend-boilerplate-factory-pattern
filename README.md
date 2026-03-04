@@ -1,6 +1,6 @@
 # Go Boilerplate Project
 
-A production-ready Go web API boilerplate using the **Factory Pattern** with clean layered architecture. It includes MongoDB, MySQL, Redis support, HTTP API helpers, transaction management, network service for external API calls, and structured logging.
+A production-ready Go web API boilerplate using the **Factory Pattern** with clean layered architecture. It includes MongoDB, MySQL, Redis support, HTTP API helpers, transaction management, network service for external API calls, structured logging, and **global + application middlewares**.
 
 ---
 
@@ -13,6 +13,7 @@ A production-ready Go web API boilerplate using the **Factory Pattern** with cle
 - [Project Structure](#project-structure)
 - [Understanding the Architecture](#understanding-the-architecture)
 - [Using Existing Features](#using-existing-features)
+- [Middlewares](#middlewares)
 - [Customization Guide](#customization-guide)
 - [API Reference](#api-reference)
 
@@ -150,6 +151,13 @@ GoBoilerPlateFactoryPattern/
 │       └── router/                   # Route definitions (Gin routes, middleware)
 │           ├── serviceone_router_repository.go
 │           └── serviceone_router_service.go
+├── middlewares/
+│   ├── global/                        # Applied to all service routes
+│   │   ├── global_middleware_repository.go
+│   │   └── global_middleware_service.go
+│   └── application/                   # Service-specific (e.g. service_one)
+│       ├── application_middleware_repository.go
+│       └── application_middleware_service.go
 ├── constants/
 │   ├── api/                           # API constants (pagination, base URLs)
 │   ├── env/                           # Env mode constants
@@ -340,6 +348,76 @@ Use in HTTP handlers for parsing and responses:
 
 ---
 
+## Middlewares
+
+The project uses two middleware layers, wired via dependencies and applied in the router.
+
+### Global Middleware
+
+Applied to **all routes** in `ConfigureRouter()`, before any handler runs.
+
+| Middleware | Purpose |
+|------------|---------|
+| **RequestID** | Adds `X-Request-ID` header to each request (generates if not provided) for tracing and debugging. Stored in Gin context and echoed in response. |
+
+Location: `middlewares/global/`
+
+### Application Middleware
+
+Applied only to **service-specific route groups** (e.g. `/api/v1/*`) in `SetupRoutes()`.
+
+| Middleware | Purpose |
+|------------|---------|
+| **AppVersion** | Adds `X-App-Name` and `X-App-Version` response headers from environment config. |
+
+Location: `middlewares/application/`
+
+### Execution Order
+
+For a request to `/api/v1/brands`:
+
+1. `gin.Recovery()` – panic recovery  
+2. `gin.Logger()` – request logging  
+3. **Global:** RequestID  
+4. **Application:** AppVersion  
+5. Handler (e.g. EditBrand)
+
+### Response Headers
+
+API responses include:
+
+- `X-Request-ID` – unique request identifier  
+- `X-App-Name` – application name (from `APP_NAME`)  
+- `X-App-Version` – application version (from `APP_VERSION`)
+
+### Adding More Middlewares
+
+**Global** – In `middlewares/global/global_middleware_service.go`:
+
+1. Implement a new method that returns `gin.HandlerFunc`.
+2. Append it in `GetMiddlewares()`:
+   ```go
+   return []gin.HandlerFunc{
+       s.RequestID(),
+       s.YourNewMiddleware(),
+   }
+   ```
+
+**Application** – In `middlewares/application/application_middleware_service.go`:
+
+1. Implement a new method that returns `gin.HandlerFunc`.
+2. Append it in `GetMiddlewares()`:
+   ```go
+   return []gin.HandlerFunc{
+       s.AppVersion(),
+       s.YourNewMiddleware(),
+   }
+   ```
+
+The router applies these automatically via `GetMiddlewares()` in `ConfigureRouter` (global) and `SetupRoutes` (application).
+
+---
+
 ## Customization Guide
 
 ### Add a New Entity (e.g., "Categories")
@@ -402,6 +480,12 @@ Use in HTTP handlers for parsing and responses:
 
 ---
 
+### Add a New Middleware
+
+See [Middlewares – Adding More Middlewares](#adding-more-middlewares) above. Use `middlewares/global/` for routes-wide behavior, or `middlewares/application/` for service-specific behavior.
+
+---
+
 ### Add a New Route
 
 In `serviceone_router_service.go` → `SetupRoutes()`:
@@ -422,6 +506,8 @@ Ensure `MyHandler` is wired in `initHttpLayers` and added to `Http` in dependenc
 | `POST` | `/api/v1/products` | Create product |
 
 Base URL: `http://localhost:8080` (configurable via `APP_PORT`).
+
+Response headers for all `/api/v1` endpoints: `X-Request-ID`, `X-App-Name`, `X-App-Version`.
 
 ---
 

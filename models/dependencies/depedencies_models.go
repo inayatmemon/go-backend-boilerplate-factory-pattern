@@ -8,6 +8,8 @@ import (
 	brands_http_service "go_boilerplate_project/apps/service_one/layers/http/brands"
 	products_http_service "go_boilerplate_project/apps/service_one/layers/http/products"
 	serviceone_router "go_boilerplate_project/apps/service_one/router"
+	application_middleware "go_boilerplate_project/middlewares/application"
+	global_middleware "go_boilerplate_project/middlewares/global"
 	env_models "go_boilerplate_project/models/env"
 	context_repository "go_boilerplate_project/services/context"
 	api_helpers_service "go_boilerplate_project/services/helpers/api"
@@ -41,6 +43,12 @@ type ServiceOneDependencies struct {
 	Router      *Router
 	Domain      *Domain
 	Data        *Data
+	Middleware  *Middleware
+}
+
+type Middleware struct {
+	Global      global_middleware.Repository
+	Application application_middleware.Repository
 }
 
 type Helpers struct {

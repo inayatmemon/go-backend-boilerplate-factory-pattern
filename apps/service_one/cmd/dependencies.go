@@ -2,6 +2,8 @@ package main
 
 import (
 	env_service_one "go_boilerplate_project/apps/service_one/env"
+	application_middleware "go_boilerplate_project/middlewares/application"
+	global_middleware "go_boilerplate_project/middlewares/global"
 	brands_data_service "go_boilerplate_project/apps/service_one/layers/data/brands"
 	products_data_service "go_boilerplate_project/apps/service_one/layers/data/products"
 	brands_domain_service "go_boilerplate_project/apps/service_one/layers/domain/brands"
@@ -95,6 +97,7 @@ func initDependencies(env *env_models.Environment, logger *zap.SugaredLogger) {
 			Brands:   nil,
 			Products: nil,
 		},
+		Middleware: nil,
 	}
 
 	err = initContextService(dependencies)
@@ -105,6 +108,11 @@ func initDependencies(env *env_models.Environment, logger *zap.SugaredLogger) {
 	err = initHelpers(dependencies)
 	if err != nil {
 		log.Fatalf("Failed to initialize helpers for service one: %v", err)
+	}
+
+	err = initMiddlewares(dependencies)
+	if err != nil {
+		log.Fatalf("Failed to initialize middlewares for service one: %v", err)
 	}
 
 	err = initServices(dependencies)
@@ -183,6 +191,22 @@ func initHelpers(d *dependencies_models.ServiceOneDependencies) error {
 		MongoDB: mongodbHelpers,
 		MySQL:   mysqlHelpers,
 		Redis:   redisHelpers,
+	}
+	return nil
+}
+
+func initMiddlewares(d *dependencies_models.ServiceOneDependencies) error {
+	global := global_middleware.InitService(global_middleware.Input{
+		Logger: d.Logger,
+	})
+	application := application_middleware.InitService(application_middleware.Input{
+		Logger:      d.Logger,
+		AppName:     d.Environment.App.AppName,
+		AppVersion:  d.Environment.App.AppVersion,
+	})
+	d.Middleware = &dependencies_models.Middleware{
+		Global:      global,
+		Application: application,
 	}
 	return nil
 }
@@ -320,6 +344,10 @@ func initRouter(d *dependencies_models.ServiceOneDependencies) error {
 		Http: &serviceone_router.Http{
 			Brands:   d.Http.Brands,
 			Products: d.Http.Products,
+		},
+		Middleware: &serviceone_router.Middleware{
+			Global:      d.Middleware.Global,
+			Application: d.Middleware.Application,
 		},
 	})
 	d.Router.ServiceOne = router
